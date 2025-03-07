@@ -1,29 +1,56 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using Sirenix.OdinInspector;
+using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class TileGenerator : MonoBehaviour
 {
-    [LabelText("일반 바닥")]
-    [SerializeField] private GameObject hexPrefabNormal;
-    [LabelText("이동 불가 바닥")]
+    [LabelText("기본 타일")]
+    [SerializeField] private GameObject hexPrefab;
+    [LabelText("물 타일")]
     [SerializeField] private GameObject hexPrefabWater;
-    [LabelText("맵크기")]
-    [SerializeField] private int mapSize;
-    
+    [LabelText("맵 크기")]
+    [SerializeField] private int mapSize = 3; // 맵 크기
+
     private float hexWidth = 1.732f;
     private float hexHeight = 1.5f;
     private float spacingFactor = 1.15f;
+
+    private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
+    
+    [LabelText("물로 변경 변수")]
+    [SerializeField] private bool isPlacingWater = false;
 
     void Start()
     {
         GenerateHexMap(mapSize);
     }
 
+    void Update()
+    {
+        if (isPlacingWater && Mouse.current.leftButton.isPressed)
+        {
+            RaycastHit hit;
+            Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+
+            if (Physics.Raycast(ray, out hit))
+            {
+                Vector3 pos = hit.collider.transform.position;
+                
+                if (hexTiles.ContainsKey(pos) && hexTiles[pos].CompareTag("HexTile"))
+                {
+                    Destroy(hexTiles[pos]);
+                    GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity);
+                    hexTiles[pos] = newTile;
+                }
+            }
+        }
+    }
+
     void GenerateHexMap(int size)
     {
-        HashSet<Vector2Int> hexCoords = new HashSet<Vector2Int>(); // 중복 방지용
+        HashSet<Vector2Int> hexCoords = new HashSet<Vector2Int>(); // 중복 방지
 
         for (int q = -size; q <= size; q++)
         {
@@ -37,14 +64,21 @@ public class TileGenerator : MonoBehaviour
         foreach (Vector2Int coord in hexCoords)
         {
             Vector3 worldPos = HexToWorldPosition(coord.x, coord.y);
-            Instantiate(hexPrefabNormal, worldPos, Quaternion.identity);
+            GameObject tile = Instantiate(hexPrefab, worldPos, Quaternion.identity);
+            tile.tag = "HexTile"; // 태그 설정
+            hexTiles.Add(worldPos, tile);
         }
     }
 
     Vector3 HexToWorldPosition(int q, int r)
     {
-        float x = hexWidth * spacingFactor * (q + r * 0.5f); // x 좌표 (간격 증가)
-        float z = hexHeight * spacingFactor * r; // z 좌표 (간격 증가)
-        return new Vector3(x, 0, z); // y는 0 (2D 기준)
+        float x = hexWidth * spacingFactor * (q + r * 0.5f);
+        float z = hexHeight * spacingFactor * r;
+        return new Vector3(x, 0, z);
+    }
+
+    public void ToggleWaterPlacement()
+    {
+        isPlacingWater = !isPlacingWater;
     }
 }

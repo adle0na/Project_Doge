@@ -1,14 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Sirenix.OdinInspector;
 
 public class TileGenerator : MonoBehaviour
 {
-    [SerializeField] private GameObject hexPrefab;
+    [LabelText("일반 바닥")]
+    [SerializeField] private GameObject hexPrefabNormal;
+    [LabelText("이동 불가 바닥")]
+    [SerializeField] private GameObject hexPrefabWater;
+    [LabelText("맵크기")]
     [SerializeField] private int mapSize;
-    [SerializeField] private float hexWidth;
-    [SerializeField] private float hexHeight;
-    [SerializeField] private float spacingFactor;
+    
+    private float hexWidth = 1.732f;
+    private float hexHeight = 1.5f;
+    private float spacingFactor = 1.15f;
 
     void Start()
     {
@@ -31,7 +37,7 @@ public class TileGenerator : MonoBehaviour
         foreach (Vector2Int coord in hexCoords)
         {
             Vector3 worldPos = HexToWorldPosition(coord.x, coord.y);
-            Instantiate(hexPrefab, worldPos, Quaternion.identity);
+            Instantiate(hexPrefabNormal, worldPos, Quaternion.identity);
         }
     }
 

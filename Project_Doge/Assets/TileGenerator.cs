@@ -1,15 +1,16 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class TileGenerator : MonoBehaviour
 {
-    [SerializeField] private GameObject hexPrefab; // 헥사곤 타일 프리팹
-    [SerializeField] private int mapSize = 3; // 맵 크기 (사용자가 입력)
+    [SerializeField] private GameObject hexPrefab;
+    [SerializeField] private int mapSize;
+    [SerializeField] private float hexWidth;
+    [SerializeField] private float hexHeight;
+    [SerializeField] private float spacingFactor;
 
-    [SerializeField] private float hexWidth = 1.732f; // sqrt(3) ≈ 1.732 (헥사 타일의 가로 길이)
-    [SerializeField] private float hexHeight = 1.5f; // 헥사 타일의 세로 간격 (1.5배)
-
-    public void CreateTile()
+    void Start()
     {
         GenerateHexMap(mapSize);
     }
@@ -36,8 +37,8 @@ public class TileGenerator : MonoBehaviour
 
     Vector3 HexToWorldPosition(int q, int r)
     {
-        float x = hexWidth * (q + r * 0.5f); // x 좌표
-        float z = hexHeight * r; // z 좌표
+        float x = hexWidth * spacingFactor * (q + r * 0.5f); // x 좌표 (간격 증가)
+        float z = hexHeight * spacingFactor * r; // z 좌표 (간격 증가)
         return new Vector3(x, 0, z); // y는 0 (2D 기준)
     }
 }

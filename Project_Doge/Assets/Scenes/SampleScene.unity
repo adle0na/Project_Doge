@@ -293,7 +293,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -534,9 +534,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hexPrefab: {fileID: 919132149155446097, guid: 470857bf745a26040b57f435c52b40a7, type: 3}
   hexPrefabWater: {fileID: 919132149155446097, guid: 4d4278f6c6cb3d64c98dd6e8f374987c, type: 3}
+  tileValueTextObj: {fileID: 1996710314618833594, guid: 0ed918c039b62fc43bcc1c859a483683, type: 3}
   mapSize: 4
   tileSpawnPoint: {fileID: 1521434474}
-  isPlacingWater: 0
+  mainCanvas: {fileID: 921855511}
+  createStatus: 0
 --- !u!1 &1521434473
 GameObject:
   m_ObjectHideFlags: 0

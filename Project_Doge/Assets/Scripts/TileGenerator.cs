@@ -26,12 +26,27 @@ public class TileGenerator : MonoBehaviour
     [Title("현재 상태")]
     [EnumToggleButtons, HideLabel]
     public CreateStatus createStatus;
+
+    private GameObject startTile = null; // 현재 지정된 시작점 타일
+    private GameObject endTile = null;   // 현재 지정된 도착점 타일
     
-    
+    [Title("제어 버튼")]
     [Button("맵 생성")]
     public void GenerateTileMap()
     {
         GenerateHexMap(Mathf.Max(mapSize, 1));
+    }
+
+    [Button("길찾기 알고리즘 실행")]
+    public void FindBestLoad()
+    {
+        if (startTile == null || endTile == null)
+        {
+            Debug.LogWarning("시작 지점과 도착지점을 모두 지정해야 합니다.");
+            return;
+        }
+            
+        Debug.Log("길찾기 알고리즘 실행");
     }
 
     void Update()
@@ -47,30 +62,45 @@ public class TileGenerator : MonoBehaviour
                 
                 if (hexTiles.ContainsKey(pos) && hexTiles[pos].CompareTag("HexTile"))
                 {
+                    GameObject selectedTile = hexTiles[pos];
+
                     if (createStatus == CreateStatus.EraseToNormal)
                     {
-                        Destroy(hexTiles[pos]);
+                        Destroy(selectedTile);
                         GameObject newTile = Instantiate(hexPrefab, pos, Quaternion.identity, tileSpawnPoint);
                         hexTiles[pos] = newTile;
                     }
 
                     if (createStatus == CreateStatus.SetStartPoint)
                     {
-                        
+                        // 기존 시작점이 존재하면 원래 색상으로 되돌림
+                        if (startTile != null)
+                        {
+                            ChangeTileColor(startTile, Color.white);
+                        }
+                        // 새로운 시작점 설정
+                        startTile = selectedTile;
+                        ChangeTileColor(selectedTile, Color.blue);
                     }
 
                     if (createStatus == CreateStatus.SetEndPoint)
                     {
-                        
+                        // 기존 도착점이 존재하면 원래 색상으로 되돌림
+                        if (endTile != null)
+                        {
+                            ChangeTileColor(endTile, Color.white);
+                        }
+                        // 새로운 도착점 설정
+                        endTile = selectedTile;
+                        ChangeTileColor(selectedTile, Color.red);
                     }
                     
                     if (createStatus == CreateStatus.SetWater)
                     {
-                        Destroy(hexTiles[pos]);
+                        Destroy(selectedTile);
                         GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity, tileSpawnPoint);
                         hexTiles[pos] = newTile;
                     }
-
                 }
             }
         }
@@ -111,6 +141,10 @@ public class TileGenerator : MonoBehaviour
             tile.tag = "HexTile"; // 태그 설정
             hexTiles.Add(tileSpawnPoint.position + worldPos, tile);
         }
+
+        // 맵이 초기화될 때, 시작점과 도착점 초기화
+        startTile = null;
+        endTile = null;
     }
 
     Vector3 HexToWorldPosition(int q, int r)
@@ -118,5 +152,15 @@ public class TileGenerator : MonoBehaviour
         float x = hexWidth * spacingFactor * (q + r * 0.5f);
         float z = hexHeight * spacingFactor * r;
         return new Vector3(x, 0, z);
+    }
+
+    void ChangeTileColor(GameObject tile, Color color)
+    {
+        Renderer tileRenderer = tile.GetComponent<Renderer>();
+        if (tileRenderer == null) return;
+
+        Material newMaterial = new Material(tileRenderer.material);
+        newMaterial.color = color;
+        tileRenderer.material = newMaterial;
     }
 }

@@ -12,7 +12,9 @@ public class TileGenerator : MonoBehaviour
     [SerializeField] private GameObject hexPrefabWater;
     [LabelText("맵 크기")]
     [SerializeField] private int mapSize = 3; // 맵 크기
-
+    [LabelText("타일 생성위치")]
+    [SerializeField] private Transform tileSpawnPoint;
+    
     private float hexWidth = 1.732f;
     private float hexHeight = 1.5f;
     private float spacingFactor = 1.15f;
@@ -22,9 +24,10 @@ public class TileGenerator : MonoBehaviour
     [LabelText("물로 변경 변수")]
     [SerializeField] private bool isPlacingWater = false;
 
-    void Start()
+    [Button, LabelText("맵 생성")]
+    public void GenerateTileMap()
     {
-        GenerateHexMap(mapSize);
+        GenerateHexMap(Mathf.Max(mapSize, 1));
     }
 
     void Update()
@@ -41,7 +44,7 @@ public class TileGenerator : MonoBehaviour
                 if (hexTiles.ContainsKey(pos) && hexTiles[pos].CompareTag("HexTile"))
                 {
                     Destroy(hexTiles[pos]);
-                    GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity);
+                    GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity, tileSpawnPoint);
                     hexTiles[pos] = newTile;
                 }
             }
@@ -50,6 +53,13 @@ public class TileGenerator : MonoBehaviour
 
     void GenerateHexMap(int size)
     {
+        hexTiles.Clear();
+        
+        foreach (Transform child in tileSpawnPoint)
+        {
+            Destroy(child.gameObject);
+        }
+        
         HashSet<Vector2Int> hexCoords = new HashSet<Vector2Int>(); // 중복 방지
 
         for (int q = -size; q <= size; q++)
@@ -64,9 +74,9 @@ public class TileGenerator : MonoBehaviour
         foreach (Vector2Int coord in hexCoords)
         {
             Vector3 worldPos = HexToWorldPosition(coord.x, coord.y);
-            GameObject tile = Instantiate(hexPrefab, worldPos, Quaternion.identity);
+            GameObject tile = Instantiate(hexPrefab, tileSpawnPoint.position + worldPos, Quaternion.identity, tileSpawnPoint);
             tile.tag = "HexTile"; // 태그 설정
-            hexTiles.Add(worldPos, tile);
+            hexTiles.Add(tileSpawnPoint.position + worldPos, tile);
         }
     }
 
@@ -75,10 +85,5 @@ public class TileGenerator : MonoBehaviour
         float x = hexWidth * spacingFactor * (q + r * 0.5f);
         float z = hexHeight * spacingFactor * r;
         return new Vector3(x, 0, z);
-    }
-
-    public void ToggleWaterPlacement()
-    {
-        isPlacingWater = !isPlacingWater;
     }
 }

@@ -19,12 +19,16 @@ public class TileGenerator : MonoBehaviour
     private float hexHeight = 1.5f;
     private float spacingFactor = 1.15f;
 
-    private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
-    
-    [LabelText("물로 변경 변수")]
-    [SerializeField] private bool isPlacingWater = false;
+    [SerializeField] private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
 
-    [Button, LabelText("맵 생성")]
+    private int currentMapSize;
+    
+    [Title("현재 상태")]
+    [EnumToggleButtons, HideLabel]
+    public CreateStatus createStatus;
+    
+    
+    [Button("맵 생성")]
     public void GenerateTileMap()
     {
         GenerateHexMap(Mathf.Max(mapSize, 1));
@@ -32,7 +36,7 @@ public class TileGenerator : MonoBehaviour
 
     void Update()
     {
-        if (isPlacingWater && Mouse.current.leftButton.isPressed)
+        if (Mouse.current.leftButton.isPressed)
         {
             RaycastHit hit;
             Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
@@ -43,16 +47,45 @@ public class TileGenerator : MonoBehaviour
                 
                 if (hexTiles.ContainsKey(pos) && hexTiles[pos].CompareTag("HexTile"))
                 {
-                    Destroy(hexTiles[pos]);
-                    GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity, tileSpawnPoint);
-                    hexTiles[pos] = newTile;
+                    if (createStatus == CreateStatus.EraseToNormal)
+                    {
+                        Destroy(hexTiles[pos]);
+                        GameObject newTile = Instantiate(hexPrefab, pos, Quaternion.identity, tileSpawnPoint);
+                        hexTiles[pos] = newTile;
+                    }
+
+                    if (createStatus == CreateStatus.SetStartPoint)
+                    {
+                        
+                    }
+
+                    if (createStatus == CreateStatus.SetEndPoint)
+                    {
+                        
+                    }
+                    
+                    if (createStatus == CreateStatus.SetWater)
+                    {
+                        Destroy(hexTiles[pos]);
+                        GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity, tileSpawnPoint);
+                        hexTiles[pos] = newTile;
+                    }
+
                 }
             }
+        }
+        
+        // R 키를 누르면 맵을 초기화
+        if (Keyboard.current.rKey.wasPressedThisFrame)
+        {
+            GenerateHexMap(currentMapSize);
         }
     }
 
     void GenerateHexMap(int size)
     {
+        currentMapSize = size;
+        
         hexTiles.Clear();
         
         foreach (Transform child in tileSpawnPoint)

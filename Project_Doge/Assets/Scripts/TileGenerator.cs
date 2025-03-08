@@ -10,17 +10,23 @@ public class TileGenerator : MonoBehaviour
     [SerializeField] private GameObject hexPrefab;
     [LabelText("물 타일")]
     [SerializeField] private GameObject hexPrefabWater;
+    [LabelText("타일 값 UI 프리팹")]
+    [SerializeField] private GameObject tileValueTextObj; // UI 프리팹
     [LabelText("맵 크기")]
     [SerializeField] private int mapSize = 3; // 맵 크기
     [LabelText("타일 생성위치")]
     [SerializeField] private Transform tileSpawnPoint;
+    [LabelText("메인 UI 캔버스")]
+    [SerializeField] private Canvas mainCanvas;
     
     private float hexWidth = 1.732f;
     private float hexHeight = 1.5f;
     private float spacingFactor = 1.15f;
 
-    [SerializeField] private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
+    private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
+    private Dictionary<GameObject, GameObject> tileValueTexts = new Dictionary<GameObject, GameObject>(); // 타일별 UI 관리
 
+    
     private int currentMapSize;
     
     [Title("현재 상태")]
@@ -162,5 +168,58 @@ public class TileGenerator : MonoBehaviour
         Material newMaterial = new Material(tileRenderer.material);
         newMaterial.color = color;
         tileRenderer.material = newMaterial;
+    }
+    
+    [Button("타일 값 표시")]
+    public void ShowTileValues()
+    {
+        foreach (var tileEntry in hexTiles)
+        {
+            GameObject tile = tileEntry.Value;
+
+            if (tileValueTexts.ContainsKey(tile))
+            {
+                // UI가 이미 존재하면 활성화
+                tileValueTexts[tile].SetActive(true);
+            }
+            else
+            {
+                // UI가 없으면 새로 생성
+                GameObject textObj = Instantiate(tileValueTextObj, mainCanvas.transform);
+                textObj.SetActive(true);
+                tileValueTexts[tile] = textObj;
+            }
+        }
+
+        UpdateTileTextPositions();
+    }
+
+    [Button("타일 값 숨기기")]
+    public void HideTileValues()
+    {
+        foreach (var textObj in tileValueTexts.Values)
+        {
+            if (textObj != null)
+            {
+                textObj.SetActive(false);
+            }
+        }
+    }
+    
+    void UpdateTileTextPositions()
+    {
+        foreach (var tileEntry in tileValueTexts)
+        {
+            GameObject tile = tileEntry.Key;
+            GameObject textObj = tileEntry.Value;
+
+            if (tile == null || textObj == null) continue;
+
+            Vector3 worldPosition = tile.transform.position + Vector3.up * 1.5f; // 타일 위쪽으로 배치
+            Vector2 screenPosition = Camera.main.WorldToScreenPoint(worldPosition);
+
+            // UI 요소의 위치를 조정
+            textObj.GetComponent<RectTransform>().position = screenPosition;
+        }
     }
 }

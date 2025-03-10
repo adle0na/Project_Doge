@@ -6,6 +6,8 @@ using UnityEngine.InputSystem;
 
 public class TileGenerator : MonoBehaviour
 {
+    [LabelText("캐릭터 프리팹")]
+    [SerializeField] private GameObject characterPrefab; // 캐릭터 프리팹
     [LabelText("기본 타일")]
     [SerializeField] private GameObject hexPrefab;
     [LabelText("물 타일")]
@@ -18,6 +20,12 @@ public class TileGenerator : MonoBehaviour
     [SerializeField] private Transform tileSpawnPoint;
     [LabelText("메인 UI 캔버스")]
     [SerializeField] private Canvas mainCanvas;
+
+    [SerializeField] private float moveSpeed = 2.0f;
+    
+    [Title("현재 상태")]
+    [EnumToggleButtons, HideLabel]
+    public CreateStatus createStatus;
     
     private float hexWidth = 1.732f;
     private float hexHeight = 1.5f;
@@ -25,17 +33,14 @@ public class TileGenerator : MonoBehaviour
 
     private Dictionary<Vector3, GameObject> hexTiles = new Dictionary<Vector3, GameObject>();
     private Dictionary<GameObject, GameObject> tileValueTexts = new Dictionary<GameObject, GameObject>(); // 타일별 UI 관리
-
-    
     private int currentMapSize;
-    
-    [Title("현재 상태")]
-    [EnumToggleButtons, HideLabel]
-    public CreateStatus createStatus;
-
+    private GameObject spawnedCharacter;
     private GameObject startTile = null; // 현재 지정된 시작점 타일
     private GameObject endTile = null;   // 현재 지정된 도착점 타일
-    
+
+
+    #region Public Functions
+
     [Title("제어 버튼")]
     [Button("맵 생성")]
     public void GenerateTileMap()
@@ -53,8 +58,106 @@ public class TileGenerator : MonoBehaviour
         }
             
         Debug.Log("길찾기 알고리즘 실행");
+
+        SpawnCharacterAtStart();
+    }
+    
+        
+    [Button("타일 값 표시")]
+    public void ShowTileValues()
+    {
+        foreach (var tileEntry in hexTiles)
+        {
+            GameObject tile = tileEntry.Value;
+
+            if (tileValueTexts.ContainsKey(tile))
+            {
+                // UI가 이미 존재하면 활성화
+                tileValueTexts[tile].SetActive(true);
+            }
+            else
+            {
+                // UI가 없으면 새로 생성
+                GameObject textObj = Instantiate(tileValueTextObj, mainCanvas.transform);
+                textObj.SetActive(true);
+                tileValueTexts[tile] = textObj;
+            }
+        }
+
+        UpdateTileTextPositions();
     }
 
+    [Button("타일 값 숨기기")]
+    public void HideTileValues()
+    {
+        foreach (var textObj in tileValueTexts.Values)
+        {
+            if (textObj != null)
+            {
+                textObj.SetActive(false);
+            }
+        }
+    }
+
+    #endregion
+    
+    void SpawnCharacterAtStart()
+    {
+        if (spawnedCharacter != null)
+        {
+            Destroy(spawnedCharacter); // 기존 캐릭터 제거
+        }
+
+        if (startTile != null)
+        {
+            Vector3 spawnPosition = startTile.transform.position + Vector3.up * 0.5f; // 살짝 위로 올려서 스폰
+            spawnedCharacter = Instantiate(characterPrefab, spawnPosition, Quaternion.identity);
+
+            // 애니메이터 가져오기
+            Animator characterAnimator = spawnedCharacter.GetComponent<Animator>();
+
+            // 도착 지점이 있다면 캐릭터가 도착 지점을 바라보도록 설정
+            if (endTile != null)
+            {
+                Vector3 lookDirection = endTile.transform.position - startTile.transform.position;
+                lookDirection.y = 0; // 수직 방향 회전 방지
+                spawnedCharacter.transform.rotation = Quaternion.LookRotation(lookDirection);
+
+                // 이동 시작
+                StartCoroutine(MoveCharacterToTarget(characterAnimator));
+            }
+        }
+    }
+
+    private IEnumerator MoveCharacterToTarget(Animator characterAnimator)
+    {
+        bool isMoving = true;
+
+        Vector3 targetPos = endTile.transform.position;
+        
+        // 애니메이션을 Walking 상태로 변경
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetBool("walking", true);
+        }
+
+        while (Vector3.Distance(spawnedCharacter.transform.position, targetPos) > 0.1f)
+        {
+            Vector3 moveDirection = (targetPos - spawnedCharacter.transform.position).normalized;
+            spawnedCharacter.transform.position += moveDirection * moveSpeed * Time.deltaTime;
+
+            yield return null;
+        }
+
+        // 이동이 끝나면 애니메이션을 멈춤
+        if (characterAnimator != null)
+        {
+            characterAnimator.SetBool("walking", false);
+        }
+
+        isMoving = false;
+    }
+    
     void Update()
     {
         if (Mouse.current.leftButton.isPressed)
@@ -168,42 +271,6 @@ public class TileGenerator : MonoBehaviour
         Material newMaterial = new Material(tileRenderer.material);
         newMaterial.color = color;
         tileRenderer.material = newMaterial;
-    }
-    
-    [Button("타일 값 표시")]
-    public void ShowTileValues()
-    {
-        foreach (var tileEntry in hexTiles)
-        {
-            GameObject tile = tileEntry.Value;
-
-            if (tileValueTexts.ContainsKey(tile))
-            {
-                // UI가 이미 존재하면 활성화
-                tileValueTexts[tile].SetActive(true);
-            }
-            else
-            {
-                // UI가 없으면 새로 생성
-                GameObject textObj = Instantiate(tileValueTextObj, mainCanvas.transform);
-                textObj.SetActive(true);
-                tileValueTexts[tile] = textObj;
-            }
-        }
-
-        UpdateTileTextPositions();
-    }
-
-    [Button("타일 값 숨기기")]
-    public void HideTileValues()
-    {
-        foreach (var textObj in tileValueTexts.Values)
-        {
-            if (textObj != null)
-            {
-                textObj.SetActive(false);
-            }
-        }
     }
     
     void UpdateTileTextPositions()

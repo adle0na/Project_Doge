@@ -532,6 +532,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 067eaebb3c780304ba23b8cf67968642, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  characterPrefab: {fileID: 6734645840121181355, guid: 1199db9163fc1024aa4ee121ef223ce4, type: 3}
   hexPrefab: {fileID: 919132149155446097, guid: 470857bf745a26040b57f435c52b40a7, type: 3}
   hexPrefabWater: {fileID: 919132149155446097, guid: 4d4278f6c6cb3d64c98dd6e8f374987c, type: 3}
   tileValueTextObj: {fileID: 1996710314618833594, guid: 0ed918c039b62fc43bcc1c859a483683, type: 3}

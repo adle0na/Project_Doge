@@ -1,13 +1,19 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 using Sirenix.OdinInspector;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.WSA;
 
 public class TileGenerator : MonoBehaviour
 {
     [LabelText("캐릭터 프리팹")]
     [SerializeField] private GameObject characterPrefab; // 캐릭터 프리팹
+    [LabelText("타일 프리팹")]
+    [SerializeField] private GameObject tilePrefab;
     [LabelText("기본 타일")]
     [SerializeField] private GameObject hexPrefab;
     [LabelText("물 타일")]
@@ -20,8 +26,16 @@ public class TileGenerator : MonoBehaviour
     [SerializeField] private Transform tileSpawnPoint;
     [LabelText("메인 UI 캔버스")]
     [SerializeField] private Canvas mainCanvas;
-
+    [LabelText("캐릭터 이동속도")]
     [SerializeField] private float moveSpeed = 2.0f;
+    
+    [Title("맵 데이터 관련")]
+    [LabelText("맵 데이터 리스트")]
+    [SerializeField]private List<TileScript> tileDatas;
+    [LabelText("시작 지점 데이터")]
+    [SerializeField, ReadOnly] private TileScript startTileData;
+    [LabelText("종료 지점 데이터")]
+    [SerializeField, ReadOnly] private TileScript endTileData;
     
     [Title("현재 상태")]
     [EnumToggleButtons, HideLabel]
@@ -35,10 +49,11 @@ public class TileGenerator : MonoBehaviour
     private Dictionary<GameObject, GameObject> tileValueTexts = new Dictionary<GameObject, GameObject>(); // 타일별 UI 관리
     private int currentMapSize;
     private GameObject spawnedCharacter;
-    private GameObject startTile = null; // 현재 지정된 시작점 타일
-    private GameObject endTile = null;   // 현재 지정된 도착점 타일
 
-
+    private GameObject startTileObj;
+    private GameObject endTileObj;
+    private Coroutine moveCoroutine = null;
+    
     #region Public Functions
 
     [Title("제어 버튼")]
@@ -51,7 +66,7 @@ public class TileGenerator : MonoBehaviour
     [Button("길찾기 알고리즘 실행")]
     public void FindBestLoad()
     {
-        if (startTile == null || endTile == null)
+        if (startTileObj == null || endTileObj == null)
         {
             Debug.LogWarning("시작 지점과 도착지점을 모두 지정해야 합니다.");
             return;
@@ -108,23 +123,30 @@ public class TileGenerator : MonoBehaviour
             Destroy(spawnedCharacter); // 기존 캐릭터 제거
         }
 
-        if (startTile != null)
+        if (startTileObj != null)
         {
-            Vector3 spawnPosition = startTile.transform.position + Vector3.up * 0.5f; // 살짝 위로 올려서 스폰
+            Vector3 spawnPosition = startTileObj.transform.position + Vector3.up * 0.5f; // 살짝 위로 올려서 스폰
             spawnedCharacter = Instantiate(characterPrefab, spawnPosition, Quaternion.identity);
 
             // 애니메이터 가져오기
             Animator characterAnimator = spawnedCharacter.GetComponent<Animator>();
 
             // 도착 지점이 있다면 캐릭터가 도착 지점을 바라보도록 설정
-            if (endTile != null)
+            if (endTileObj != null)
             {
-                Vector3 lookDirection = endTile.transform.position - startTile.transform.position;
+                Vector3 lookDirection = endTileObj.transform.position - startTileObj.transform.position;
                 lookDirection.y = 0; // 수직 방향 회전 방지
                 spawnedCharacter.transform.rotation = Quaternion.LookRotation(lookDirection);
 
-                // 이동 시작
-                StartCoroutine(MoveCharacterToTarget(characterAnimator));
+
+                if (characterAnimator != null)
+                {
+                    // 이동 시작
+                    if(moveCoroutine != null)
+                        StopCoroutine(moveCoroutine);
+                    
+                    moveCoroutine = StartCoroutine(MoveCharacterToTarget(characterAnimator));
+                }
             }
         }
     }
@@ -133,19 +155,18 @@ public class TileGenerator : MonoBehaviour
     {
         bool isMoving = true;
 
-        Vector3 targetPos = endTile.transform.position;
+        Vector3 targetPos = endTileObj.transform.position;
         
         // 애니메이션을 Walking 상태로 변경
         if (characterAnimator != null)
         {
             characterAnimator.SetBool("walking", true);
         }
-
+        
         while (Vector3.Distance(spawnedCharacter.transform.position, targetPos) > 0.1f)
         {
             Vector3 moveDirection = (targetPos - spawnedCharacter.transform.position).normalized;
             spawnedCharacter.transform.position += moveDirection * moveSpeed * Time.deltaTime;
-
             yield return null;
         }
 
@@ -175,40 +196,54 @@ public class TileGenerator : MonoBehaviour
 
                     if (createStatus == CreateStatus.EraseToNormal)
                     {
-                        Destroy(selectedTile);
-                        GameObject newTile = Instantiate(hexPrefab, pos, Quaternion.identity, tileSpawnPoint);
-                        hexTiles[pos] = newTile;
+                        TileScript getTileScript = selectedTile.gameObject.GetComponent<TileScript>();
+                        
+                        getTileScript.SetTilePrefab(hexPrefab);
+                        
+                        selectedTile.tag = "HexTile";
+                        
+                        if (getTileScript != null)
+                        {
+                            getTileScript.SetMovable(true); // 이동 가능 블록으로 재변경
+                        }
                     }
 
                     if (createStatus == CreateStatus.SetStartPoint)
                     {
                         // 기존 시작점이 존재하면 원래 색상으로 되돌림
-                        if (startTile != null)
+                        if (startTileObj != null)
                         {
-                            ChangeTileColor(startTile, Color.white);
+                            ChangeTileColor(startTileObj, Color.white);
                         }
                         // 새로운 시작점 설정
-                        startTile = selectedTile;
+                        startTileObj = selectedTile;
                         ChangeTileColor(selectedTile, Color.blue);
                     }
 
                     if (createStatus == CreateStatus.SetEndPoint)
                     {
                         // 기존 도착점이 존재하면 원래 색상으로 되돌림
-                        if (endTile != null)
+                        if (endTileObj != null)
                         {
-                            ChangeTileColor(endTile, Color.white);
+                            ChangeTileColor(endTileObj, Color.white);
                         }
                         // 새로운 도착점 설정
-                        endTile = selectedTile;
+                        endTileObj = selectedTile;
                         ChangeTileColor(selectedTile, Color.red);
                     }
                     
                     if (createStatus == CreateStatus.SetWater)
                     {
-                        Destroy(selectedTile);
-                        GameObject newTile = Instantiate(hexPrefabWater, pos, Quaternion.identity, tileSpawnPoint);
-                        hexTiles[pos] = newTile;
+                        TileScript getTileScript = selectedTile.gameObject.GetComponent<TileScript>();
+                        
+                        getTileScript.SetTilePrefab(hexPrefabWater);
+
+                        selectedTile.tag = "WaterTile";
+                        
+                        if (getTileScript != null)
+                        {
+                            getTileScript.SetMovable(false); // 물타일은 이동 불가
+                        }
                     }
                 }
             }
@@ -220,18 +255,27 @@ public class TileGenerator : MonoBehaviour
             GenerateHexMap(currentMapSize);
         }
     }
-
     void GenerateHexMap(int size)
     {
         currentMapSize = size;
-        
+    
         hexTiles.Clear();
-        
+    
+        if (moveCoroutine != null)
+        {
+            StopCoroutine(moveCoroutine);
+        }
+    
+        if (spawnedCharacter != null)
+        {
+            Destroy(spawnedCharacter);
+        }
+    
         foreach (Transform child in tileSpawnPoint)
         {
             Destroy(child.gameObject);
         }
-        
+    
         HashSet<Vector2Int> hexCoords = new HashSet<Vector2Int>(); // 중복 방지
 
         for (int q = -size; q <= size; q++)
@@ -242,20 +286,85 @@ public class TileGenerator : MonoBehaviour
                 hexCoords.Add(new Vector2Int(q, r));
             }
         }
-
-        foreach (Vector2Int coord in hexCoords)
+    
+        // 정렬: r(세로) 내림차순 -> q(가로) 내림차순 (좌측 상단이 0,0)
+        List<Vector2Int> sortedHexCoords = hexCoords.ToList();
+        sortedHexCoords.Sort((a, b) => 
+        {
+            if (a.y != b.y) return b.y - a.y; // 아래에서 위로 정렬
+            return a.x - b.x; 
+        });
+    
+        Dictionary<Vector3, Vector2Int> worldToGridMap = new Dictionary<Vector3, Vector2Int>();
+    
+        foreach (Vector2Int coord in sortedHexCoords)
         {
             Vector3 worldPos = HexToWorldPosition(coord.x, coord.y);
-            GameObject tile = Instantiate(hexPrefab, tileSpawnPoint.position + worldPos, Quaternion.identity, tileSpawnPoint);
+            GameObject tile = Instantiate(tilePrefab, tileSpawnPoint.position + worldPos, Quaternion.identity, tileSpawnPoint);
+
+            TileScript getTile = tile.GetComponent<TileScript>();
+            getTile.SetTilePrefab(hexPrefab);
+            getTile.SetMovable(true);
             tile.tag = "HexTile"; // 태그 설정
             hexTiles.Add(tileSpawnPoint.position + worldPos, tile);
+            tileDatas.Add(tile.GetComponent<TileScript>());
         }
-
         // 맵이 초기화될 때, 시작점과 도착점 초기화
-        startTile = null;
-        endTile = null;
+        startTileObj = null;
+        endTileObj = null;
     }
+    
+    [Button("타일 데이터화")]
+    public void SetTileData()
+    {
+        tileDatas.Clear(); // 기존 데이터를 초기화
 
+        List<KeyValuePair<Vector3, GameObject>> sortedTiles = hexTiles.ToList();
+        sortedTiles.Sort((a, b) => 
+        {
+            if (a.Key.z != b.Key.z) return b.Key.z.CompareTo(a.Key.z); // 위에서 아래로
+            return a.Key.x.CompareTo(b.Key.x); // 왼쪽부터 오른쪽으로
+        });
+
+        int row = 0;
+        int col = 0;
+        int rowSize = currentMapSize + 1;
+        int maxRow = currentMapSize * 2;
+        
+        foreach (var tileEntry in sortedTiles)
+        {
+            GameObject tile = tileEntry.Value;
+            TileScript tileScript = tile.GetComponent<TileScript>();
+            
+            if (tileScript != null)
+            {
+                tileDatas.Add(tileScript);
+                tileScript.SetTilePoint(row, col);
+                col++;
+                
+                // 다음 줄로 이동할 조건
+                if (col >= rowSize)
+                {
+                    row++;
+                    col = 0;
+                    
+                    if (row <= currentMapSize)
+                        rowSize++;
+                    else
+                        rowSize--;
+                }
+                
+                if (tile.CompareTag("WaterTile"))
+                {
+                    tileScript.SetMovable(false);
+                }
+            }
+        }
+        
+        // TODO data to dll
+        
+        Debug.Log("타일 데이터가 설정되었습니다. 타일 개수: " + tileDatas.Count);
+    }
     Vector3 HexToWorldPosition(int q, int r)
     {
         float x = hexWidth * spacingFactor * (q + r * 0.5f);
@@ -265,9 +374,12 @@ public class TileGenerator : MonoBehaviour
 
     void ChangeTileColor(GameObject tile, Color color)
     {
-        Renderer tileRenderer = tile.GetComponent<Renderer>();
+        Transform child = tile.transform.childCount > 0 ? tile.transform.GetChild(0) : null;
+        if (child == null) return;
+    
+        Renderer tileRenderer = child.GetComponent<Renderer>();
         if (tileRenderer == null) return;
-
+    
         Material newMaterial = new Material(tileRenderer.material);
         newMaterial.color = color;
         tileRenderer.material = newMaterial;
